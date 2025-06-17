@@ -45,7 +45,6 @@ kotlin {
     }
 }
 
-
 compose.desktop {
     application {
         mainClass = "ru.cororo.youtubecounter.MainKt"
