@@ -25,7 +25,5 @@ ktor {
     docker {
         imageTag = "1.0.0"
         localImageName = "youtubecounter-backend"
-        environmentVariable("GOOGLE_CLIENT_ID", System.getenv("GOOGLE_CLIENT_ID"))
-        environmentVariable("GOOGLE_CLIENT_SECRET", System.getenv("GOOGLE_CLIENT_SECRET"))
     }
 }
