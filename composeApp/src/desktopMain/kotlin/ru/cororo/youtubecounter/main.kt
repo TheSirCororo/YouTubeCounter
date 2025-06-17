@@ -13,14 +13,20 @@ import ru.cororo.youtubecounter.api.GoogleAccessToken
 import ru.cororo.youtubecounter.components.App
 import ru.cororo.youtubecounter.components.GoogleAuthenticator
 import ru.cororo.youtubecounter.components.ViewersPopupWindow
+import ru.cororo.youtubecounter.credentials.getAccessTokenFromStorage
+import ru.cororo.youtubecounter.credentials.putAccessTokenToStorage
 import youtubecounter.composeapp.generated.resources.Res
 import youtubecounter.composeapp.generated.resources.icon
 
 fun main() = application {
-    val mainWindowState = rememberWindowState(height = 200.dp, width = 400.dp)
+    val mainWindowState = rememberWindowState(height = 225.dp, width = 400.dp)
     var showPopup by remember { mutableStateOf(false) }
     var videoId by remember { mutableStateOf("") }
-    var accessToken by remember { mutableStateOf<GoogleAccessToken?>(null) }
+    var accessToken by remember {
+        mutableStateOf(getAccessTokenFromStorage()?.let {
+            GoogleAccessToken(it)
+        })
+    }
 
     if (accessToken == null) {
         Window(
@@ -29,7 +35,10 @@ fun main() = application {
             title = "Вход в аккаунт",
             icon = painterResource(Res.drawable.icon)
         ) {
-            GoogleAuthenticator { accessToken = it }
+            GoogleAuthenticator {
+                accessToken = it
+                putAccessTokenToStorage(it?.accessToken)
+            }
         }
     } else {
         if (showPopup) {
@@ -37,7 +46,10 @@ fun main() = application {
                 getAccessToken = { accessToken!! },
                 videoId = videoId,
                 onCloseRequest = { showPopup = false },
-                setAccessToken = { accessToken = it }
+                setAccessToken = {
+                    accessToken = it
+                    putAccessTokenToStorage(it?.accessToken)
+                }
             )
         } else {
             Window(
@@ -47,11 +59,11 @@ fun main() = application {
                 icon = painterResource(Res.drawable.icon)
             ) {
                 App(
-                    onShowPopup = {
-                        showPopup = true
-                    },
-                    setVideoId = {
-                        videoId = it
+                    onShowPopup = { showPopup = true },
+                    setVideoId = { videoId = it },
+                    setAccessToken = {
+                        accessToken = it
+                        putAccessTokenToStorage(it?.accessToken)
                     }
                 )
             }

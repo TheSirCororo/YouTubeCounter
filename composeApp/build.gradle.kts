@@ -41,6 +41,7 @@ kotlin {
             implementation(libs.oauth)
             implementation(libs.google.api)
             implementation(libs.logback)
+            implementation("com.github.javakeyring:java-keyring:1.0.4")
         }
     }
 }
@@ -50,9 +51,10 @@ compose.desktop {
         mainClass = "ru.cororo.youtubecounter.MainKt"
 
         nativeDistributions {
+            modules("jdk.httpserver")
             targetFormats(TargetFormat.Msi)
             packageName = "YouTubeCounter"
-            packageVersion = "1.0.0"
+            packageVersion = "1.0.1"
             description = "Viewers and likes counter for youtube streams"
             copyright = "© 2025 TheSirCororo. All rights reserved."
             vendor = "TheSirCororo"

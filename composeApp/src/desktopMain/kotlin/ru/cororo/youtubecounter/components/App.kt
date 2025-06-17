@@ -11,11 +11,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import org.jetbrains.compose.ui.tooling.preview.Preview
+import ru.cororo.youtubecounter.api.GoogleAccessToken
 import ru.cororo.youtubecounter.api.extractVideoId
 
 @Composable
 @Preview
-fun App(onShowPopup: () -> Unit, setVideoId: (String) -> Unit) {
+fun App(onShowPopup: () -> Unit, setVideoId: (String) -> Unit, setAccessToken: (GoogleAccessToken?) -> Unit) {
     var url by remember { mutableStateOf("") }
     var error by remember { mutableStateOf(false) }
 
@@ -37,6 +38,12 @@ fun App(onShowPopup: () -> Unit, setVideoId: (String) -> Unit) {
             }
         }) {
             Text("Показать счётчик")
+        }
+
+        Button(onClick = {
+            setAccessToken(null)
+        }) {
+            Text("Выйти из аккаунта")
         }
 
         if (error) {

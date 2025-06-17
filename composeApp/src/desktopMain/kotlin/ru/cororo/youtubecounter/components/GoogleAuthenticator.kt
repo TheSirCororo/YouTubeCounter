@@ -20,7 +20,7 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 
 @Composable
 @Preview
-fun GoogleAuthenticator(setToken: (GoogleAccessToken) -> Unit) {
+fun GoogleAuthenticator(setToken: (GoogleAccessToken?) -> Unit) {
     var error by remember { mutableStateOf(false) }
     var pendingLogin by remember { mutableStateOf(false) }
 
@@ -38,11 +38,13 @@ fun GoogleAuthenticator(setToken: (GoogleAccessToken) -> Unit) {
                         try {
                             pendingLogin = true
                             val token = authorizeGoogleOAuth()
+
                             pendingLogin = false
                             setToken(token)
                         } catch (e: Exception) {
                             error = true
                             e.printStackTrace()
+                            setToken(null)
                         }
                     }
                 }) {

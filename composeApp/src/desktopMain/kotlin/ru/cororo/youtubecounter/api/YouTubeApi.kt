@@ -46,7 +46,7 @@ data class LiveStreamingDetails(
 suspend fun getYouTubeStreamViewersCount(
     accessToken: GoogleAccessToken,
     videoId: String,
-    updateAccessToken: (GoogleAccessToken) -> Unit
+    updateAccessToken: (GoogleAccessToken?) -> Unit
 ): Pair<Int?, Int?> {
     val response: HttpResponse = client.get("$YOUTUBE_ENDPOINT_URL/videos") {
         header("Authorization", "Bearer ${accessToken.accessToken}")
@@ -56,8 +56,14 @@ suspend fun getYouTubeStreamViewersCount(
 
     if (!response.status.isSuccess()) {
         println("Got error status. Trying to refresh.")
-        val newToken = refreshToken(accessToken)
-        updateAccessToken(newToken)
+        val newToken = try {
+            refreshToken(accessToken)
+        } catch (ex: Exception) {
+            ex.printStackTrace()
+            updateAccessToken(null)
+            return null to null
+        }
+
         return getYouTubeStreamViewersCount(newToken, videoId, updateAccessToken)
     }
 
@@ -90,7 +96,7 @@ fun extractVideoId(url: String): String? {
 
             else -> null
         }
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         null
     }
 }

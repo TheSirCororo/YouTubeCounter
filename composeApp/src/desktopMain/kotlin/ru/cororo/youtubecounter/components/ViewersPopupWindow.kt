@@ -4,12 +4,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.*
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
 import ru.cororo.youtubecounter.api.GoogleAccessToken
@@ -21,7 +24,7 @@ import youtubecounter.composeapp.generated.resources.icon
 fun ViewersPopupWindow(
     videoId: String,
     getAccessToken: () -> GoogleAccessToken,
-    setAccessToken: (GoogleAccessToken) -> Unit,
+    setAccessToken: (GoogleAccessToken?) -> Unit,
     onCloseRequest: () -> Unit
 ) {
     var viewersCount by remember { mutableStateOf(0) }
@@ -29,7 +32,11 @@ fun ViewersPopupWindow(
 
     LaunchedEffect(videoId) {
         while (true) {
-            val (viewersCounter, likesCounter) = getYouTubeStreamViewersCount(accessToken = getAccessToken(), videoId = videoId, updateAccessToken = setAccessToken)
+            val (viewersCounter, likesCounter) = getYouTubeStreamViewersCount(
+                accessToken = getAccessToken(),
+                videoId = videoId,
+                updateAccessToken = setAccessToken
+            )
             if (viewersCounter != null) {
                 viewersCount = viewersCounter
             }
