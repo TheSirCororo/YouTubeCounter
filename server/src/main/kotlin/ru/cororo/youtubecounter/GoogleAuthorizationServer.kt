@@ -14,6 +14,7 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 private val refreshTokens = mutableMapOf<String, String>() // access - refresh
@@ -22,12 +23,19 @@ fun main(args: Array<String>) {
     EngineMain.main(args)
 }
 
+@Serializable
+data class GoogleAuthConfig(
+    @SerialName("client_id")
+    val clientId: String,
+    @SerialName("client_secret")
+    val clientSecret: String
+)
+
 fun Application.module() {
     val transport = GoogleNetHttpTransport.newTrustedTransport()
     val jsonFactory = GsonFactory.getDefaultInstance()
 
-    val googleClientId = environment.config.tryGetString("google.client_id") ?: error("Client id not found")
-    val googleClientSecret = environment.config.tryGetString("google.client_secret") ?: error("Client secret not found")
+    val (googleClientId, googleClientSecret) = property<GoogleAuthConfig>("google")
 
     install(ContentNegotiation) {
         json()
