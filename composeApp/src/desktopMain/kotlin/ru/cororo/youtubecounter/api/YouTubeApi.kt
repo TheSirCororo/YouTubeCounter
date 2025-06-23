@@ -64,6 +64,7 @@ suspend fun getYouTubeStreamViewersCount(
             return null to null
         }
 
+        updateAccessToken(newToken)
         return getYouTubeStreamViewersCount(newToken, videoId, updateAccessToken)
     }
 
