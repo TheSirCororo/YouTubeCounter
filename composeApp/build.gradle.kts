@@ -50,8 +50,12 @@ compose.desktop {
     application {
         mainClass = "ru.cororo.youtubecounter.MainKt"
 
+        buildTypes.release.proguard {
+            configurationFiles.from("rules.pro")
+        }
+
         nativeDistributions {
-            modules("jdk.httpserver")
+            modules("jdk.httpserver", "jdk.unsupported", "java.naming")
             targetFormats(TargetFormat.Msi)
             packageName = "YouTubeCounter"
             packageVersion = "1.0.2"
