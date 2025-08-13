@@ -251,6 +251,7 @@
 # Keyring
 -keep class com.github.javakeyring.** { *; }
 -keep class com.sun.jna.** { *; }
+-keep class org.freedesktop.dbus.** { *; }
 -keepclassmembers class com.sun.jna.** { *; }
 
 # Entry point to the app.

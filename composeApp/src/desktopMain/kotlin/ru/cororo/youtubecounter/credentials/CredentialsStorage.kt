@@ -4,7 +4,7 @@ import com.github.javakeyring.Keyring
 import com.github.javakeyring.KeyringStorageType
 import com.github.javakeyring.PasswordAccessException
 
-private val keyring = Keyring.create(KeyringStorageType.KWALLET)
+private val keyring = Keyring.create()
 
 fun putAccessTokenToStorage(token: String?) {
     if (token != null) {
