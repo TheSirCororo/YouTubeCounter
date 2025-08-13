@@ -12,6 +12,7 @@ dependencies {
     implementation(libs.ktor.server.netty)
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.content.negotiation)
+    implementation(libs.ktor.server.statusPages)
     implementation(libs.oauth)
     implementation(libs.google.api)
     implementation(libs.logback)

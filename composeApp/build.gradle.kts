@@ -55,8 +55,8 @@ compose.desktop {
         }
 
         nativeDistributions {
-            modules("jdk.httpserver", "jdk.unsupported", "java.naming")
-            targetFormats(TargetFormat.Msi)
+            modules("jdk.httpserver", "jdk.unsupported", "java.naming", "jdk.security.auth")
+            targetFormats(TargetFormat.Msi, TargetFormat.AppImage)
             packageName = "YouTubeCounter"
             packageVersion = "1.0.2"
             description = "Viewers and likes counter for youtube streams"

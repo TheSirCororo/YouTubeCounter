@@ -11,6 +11,7 @@ import io.ktor.server.config.*
 import io.ktor.server.http.content.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -39,6 +40,13 @@ fun Application.module() {
 
     install(ContentNegotiation) {
         json()
+    }
+
+    install(StatusPages) {
+        exception<Throwable> { call, cause ->
+            cause.printStackTrace()
+            call.respondText("Error! ${cause.message}", status = HttpStatusCode.InternalServerError)
+        }
     }
 
     routing {
