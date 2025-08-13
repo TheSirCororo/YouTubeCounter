@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "ru.cororo.youtubecounter"
-version = "1.0.2"
+version = "1.0.4"
 
 dependencies {
     implementation(libs.ktor.serialization)
@@ -24,7 +24,7 @@ application {
 
 ktor {
     docker {
-        imageTag = "1.0.2"
+        imageTag = "1.0.4"
         localImageName = "youtubecounter-backend"
     }
 }
