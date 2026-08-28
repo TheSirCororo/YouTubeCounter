@@ -104,6 +104,22 @@ it the runner would trust whatever answers on that address.
 `docker compose up` on its own is deliberately rejected — the image tag is not
 guessed, it comes from `.env`, which `deploy.sh` maintains.
 
+## The token database
+
+Refresh tokens live in SQLite at `/data/tokens.db` inside the container, on the
+`youtubecounter_tokens` docker volume. Before this existed they were in memory, so
+every deploy signed all users out; now a redeploy leaves sessions intact.
+
+Treat the volume as secret material — it holds usable refresh tokens (access tokens
+are stored only as hashes). To back it up:
+
+```sh
+docker run --rm -v youtubecounter_tokens:/data -v "$PWD":/backup busybox \
+    cp /data/tokens.db /backup/tokens-$(date +%F).db
+```
+
+`docker compose down -v` deletes it and signs everyone out; plain `down` does not.
+
 ## Things worth knowing
 
 - Anyone in the `docker` group on the host can read the secrets out of the running

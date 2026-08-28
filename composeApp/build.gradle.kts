@@ -44,7 +44,6 @@ kotlin {
     }
 }
 
-// Comes from gradle.properties, or from -PappVersion for a one-off build.
 val appVersion = version.toString()
 
 compose.desktop {
@@ -52,7 +51,6 @@ compose.desktop {
         mainClass = "ru.cororo.youtubecounter.MainKt"
 
         buildTypes.release.proguard {
-            // 7.10.0+ bundles kotlin-metadata-jvm 2.4, required to read Kotlin 2.4 .kotlin_module files
             version.set("7.10.0")
             configurationFiles.from("rules.pro")
         }
@@ -67,7 +65,7 @@ compose.desktop {
             packageName = "YouTubeCounter"
             packageVersion = appVersion
             description = "Viewers and likes counter for youtube streams"
-            copyright = "© 2025 TheSirCororo. All rights reserved."
+            copyright = "© 2026 TheSirCororo. All rights reserved."
             vendor = "TheSirCororo"
             licenseFile.set(rootProject.file("LICENSE"))
 

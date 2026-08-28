@@ -21,6 +21,13 @@ dependencies {
     implementation(libs.oauth)
     implementation(libs.google.api)
     implementation(libs.logback)
+    implementation(libs.sqliteJdbc)
+
+    testImplementation(libs.kotlin.test)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 application {

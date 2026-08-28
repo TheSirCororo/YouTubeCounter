@@ -13,6 +13,7 @@ oauth = "1.39.0"
 google-api = "2.9.0"
 logback = "1.6.3"
 javaKeyring = "1.0.4"
+sqliteJdbc = "3.53.4.0"
 
 [libraries]
 
@@ -53,6 +54,9 @@ logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 
 # OS keyring, for persisting the access token
 javaKeyring = { module = "com.github.javakeyring:java-keyring", version.ref = "javaKeyring" }
+
+# Server-side storage for refresh tokens
+sqliteJdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
 
 [plugins]
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }

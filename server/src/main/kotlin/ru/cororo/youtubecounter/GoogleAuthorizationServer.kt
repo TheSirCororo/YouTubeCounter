@@ -15,9 +15,11 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import java.util.concurrent.ConcurrentHashMap
+import ru.cororo.youtubecounter.storage.RefreshTokenStore
 
 fun main(args: Array<String>) {
     EngineMain.main(args)
@@ -32,18 +34,28 @@ data class GoogleAuthConfig(
 )
 
 @Serializable
+data class StorageConfig(
+    @SerialName("database_path")
+    val databasePath: String
+)
+
+@Serializable
 data class GoogleAuthCodeRequest(val code: String, val redirectUri: String)
 
 @Serializable
 data class GoogleAccessToken(val accessToken: String)
-
-internal val refreshTokens = ConcurrentHashMap<String, String>()
 
 fun Application.module() {
     val transport = NetHttpTransport()
     val jsonFactory = GsonFactory.getDefaultInstance()
 
     val (googleClientId, googleClientSecret) = property<GoogleAuthConfig>("google")
+    val (databasePath) = property<StorageConfig>("storage")
+
+    // Refresh tokens never reach the client; they live here and now outlive a restart.
+    val refreshTokens = RefreshTokenStore(databasePath)
+    refreshTokens.pruneStale()
+    monitor.subscribe(ApplicationStopped) { refreshTokens.close() }
 
     install(ContentNegotiation) {
         json()
@@ -69,14 +81,16 @@ fun Application.module() {
                 request.redirectUri
             ).execute()
 
-            refreshTokens[tokenResponse.accessToken] = tokenResponse.refreshToken
+            withContext(Dispatchers.IO) {
+                refreshTokens.put(tokenResponse.accessToken, tokenResponse.refreshToken)
+            }
 
             call.respond(GoogleAccessToken(tokenResponse.accessToken))
         }
 
         post("/oauth2/refresh") {
             val request = call.receive<GoogleAccessToken>()
-            val refreshToken = refreshTokens[request.accessToken] ?: run {
+            val refreshToken = withContext(Dispatchers.IO) { refreshTokens.find(request.accessToken) } ?: run {
                 call.respondText("No refresh token found.", status = HttpStatusCode.Unauthorized)
                 return@post
             }
@@ -89,10 +103,11 @@ fun Application.module() {
                 googleClientSecret
             ).execute()
 
-            refreshTokens.remove(request.accessToken)
-
+            // Google only returns a refresh token on the first exchange; keep the old one otherwise.
             val newRefreshToken = tokenResponse.refreshToken ?: refreshToken
-            refreshTokens[tokenResponse.accessToken] = newRefreshToken
+            withContext(Dispatchers.IO) {
+                refreshTokens.rekey(request.accessToken, tokenResponse.accessToken, newRefreshToken)
+            }
 
             call.respond(GoogleAccessToken(tokenResponse.accessToken))
         }

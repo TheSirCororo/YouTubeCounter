@@ -17,20 +17,36 @@ services:
     env_file:
       - .env
 
+    # Set here rather than in .env: it must match the volume mount below, and is not
+    # something an operator should have to keep in sync by hand.
+    environment:
+      TOKENS_DB_PATH: /data/tokens.db
+
     # Bound to loopback only: the reverse proxy in front of it is the sole way in
     # from the outside world. Do not change this to 0.0.0.0 - the app speaks plain
     # HTTP and terminates no TLS of its own.
     ports:
       - "127.0.0.1:${HOST_PORT:-8080}:8080"
 
+    # Refresh tokens live in a SQLite file here. Without this volume every redeploy
+    # would sign all users out, which is the whole reason the store exists.
+    volumes:
+      - tokens:/data
+
     security_opt:
       - no-new-privileges:true
 
+    # `exec` is required, not decoration: docker mounts tmpfs noexec by default, and
+    # sqlite-jdbc unpacks its native library into java.io.tmpdir and dlopen()s it, so
+    # a plain `- /tmp` makes the container fail to start with NativeLibraryNotFound.
     tmpfs:
-      - /tmp
+      - /tmp:exec
 
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "5"
+
+volumes:
+  tokens:
