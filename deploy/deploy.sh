@@ -34,6 +34,13 @@ fi
 cd "$DEPLOY_DIR" || die "deployment directory $DEPLOY_DIR not found"
 [[ -f docker-compose.yml ]] || die "no docker-compose.yml in $DEPLOY_DIR"
 [[ -f .env ]] || die "no .env in $DEPLOY_DIR - copy .env.example and fill it in"
+
+# Checked explicitly: a root-owned .env left over from the initial setup is readable
+# to `test -f` but not to this user, and compose would fail deep into the deploy with
+# a bare "permission denied" after the settings here had silently fallen back.
+[[ -r .env ]] || die ".env is not readable by $(id -un) - run: chown $(id -un): $DEPLOY_DIR/.env && chmod 600 $DEPLOY_DIR/.env"
+[[ -w . ]] || die "$DEPLOY_DIR is not writable by $(id -un) - the tag is recorded in .env after a successful deploy"
+
 docker compose version >/dev/null 2>&1 || die "docker compose v2 is required"
 
 # --- Read the few non-secret settings we need --------------------------------

@@ -26,6 +26,12 @@ fun main() = application {
         mutableStateOf(getAccessTokenFromStorage()?.let { GoogleAccessToken(it) })
     }
 
+    // The keyring and the in-memory state must never disagree, so every write goes here.
+    fun setAccessToken(token: GoogleAccessToken?) {
+        accessToken = token
+        putAccessTokenToStorage(token?.accessToken)
+    }
+
     if (accessToken == null) {
         Window(
             onCloseRequest = ::exitApplication,
@@ -33,10 +39,7 @@ fun main() = application {
             title = "Вход в аккаунт",
             icon = painterResource(Res.drawable.icon)
         ) {
-            GoogleAuthenticator {
-                accessToken = it
-                putAccessTokenToStorage(it?.accessToken)
-            }
+            GoogleAuthenticator(setToken = ::setAccessToken)
         }
     } else {
         if (showPopup) {
@@ -44,10 +47,7 @@ fun main() = application {
                 getAccessToken = { accessToken!! },
                 videoId = videoId,
                 onCloseRequest = { showPopup = false },
-                setAccessToken = {
-                    accessToken = it
-                    putAccessTokenToStorage(it?.accessToken)
-                }
+                setAccessToken = ::setAccessToken
             )
         } else {
             Window(
@@ -59,10 +59,7 @@ fun main() = application {
                 App(
                     onShowPopup = { showPopup = true },
                     setVideoId = { videoId = it },
-                    setAccessToken = {
-                        accessToken = it
-                        putAccessTokenToStorage(it?.accessToken)
-                    }
+                    setAccessToken = ::setAccessToken
                 )
             }
         }

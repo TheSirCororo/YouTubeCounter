@@ -1,6 +1,10 @@
 [versions]
 androidx-lifecycle = "2.11.0"
 composeMultiplatform = "1.12.0"
+# Both follow their own release trains, not the Compose Multiplatform version:
+# material3 is on 1.9.x, and the icons artifact stopped receiving updates at 1.7.3.
+composeMaterial3 = "1.9.0"
+composeMaterialIcons = "1.7.3"
 junit = "4.13.2"
 kotlin = "2.4.10"
 kotlinx-coroutines = "1.11.0"
@@ -8,8 +12,19 @@ ktor = "3.5.2"
 oauth = "1.39.0"
 google-api = "2.9.0"
 logback = "1.6.3"
+javaKeyring = "1.0.4"
 
 [libraries]
+
+# Compose Multiplatform - declared explicitly; the `compose.runtime` style accessors
+# are deprecated in 1.12.
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composeMultiplatform" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }
+compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "composeMaterial3" }
+compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
+compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
+compose-components-uiToolingPreview = { module = "org.jetbrains.compose.components:components-ui-tooling-preview", version.ref = "composeMultiplatform" }
+compose-materialIconsExtended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "composeMaterialIcons" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-testJunit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 junit = { module = "junit:junit", version.ref = "junit" }
@@ -35,6 +50,9 @@ ktor-server-statusPages = { module = "io.ktor:ktor-server-status-pages", version
 
 # Logging
 logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+
+# OS keyring, for persisting the access token
+javaKeyring = { module = "com.github.javakeyring:java-keyring", version.ref = "javaKeyring" }
 
 [plugins]
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }

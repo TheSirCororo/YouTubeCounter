@@ -1,27 +1,14 @@
 package ru.cororo.youtubecounter.api
 
-import io.ktor.client.*
 import io.ktor.client.call.*
-import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.isSuccess
-import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.net.URI
 import java.net.URLDecoder
 
 private const val YOUTUBE_ENDPOINT_URL = "https://www.googleapis.com/youtube/v3"
-private val client = HttpClient(CIO) {
-    install(ContentNegotiation) {
-        json(Json {
-            ignoreUnknownKeys = true
-        })
-    }
-}
-
 @Serializable
 data class YouTubeVideoResponse(
     val items: List<VideoItem>
@@ -43,12 +30,15 @@ data class LiveStreamingDetails(
     val concurrentViewers: String? = null
 )
 
+/** Either field is null when the stream does not report it, or when the call failed. */
+data class StreamStats(val viewers: Int?, val likes: Int?)
+
 suspend fun getYouTubeStreamViewersCount(
     accessToken: GoogleAccessToken,
     videoId: String,
     updateAccessToken: (GoogleAccessToken?) -> Unit
-): Pair<Int?, Int?> {
-    val response: HttpResponse = client.get("$YOUTUBE_ENDPOINT_URL/videos") {
+): StreamStats {
+    val response: HttpResponse = httpClient.get("$YOUTUBE_ENDPOINT_URL/videos") {
         header("Authorization", "Bearer ${accessToken.accessToken}")
         parameter("part", "liveStreamingDetails,statistics")
         parameter("id", videoId)
@@ -61,7 +51,7 @@ suspend fun getYouTubeStreamViewersCount(
         } catch (ex: Exception) {
             ex.printStackTrace()
             updateAccessToken(null)
-            return null to null
+            return StreamStats(viewers = null, likes = null)
         }
 
         updateAccessToken(newToken)
@@ -70,9 +60,11 @@ suspend fun getYouTubeStreamViewersCount(
 
     val body = response.body<YouTubeVideoResponse>()
 
-    val viewers = body.items.firstOrNull()?.liveStreamingDetails?.concurrentViewers
-    val likes = body.items.firstOrNull()?.statistics?.likeCount
-    return viewers?.toIntOrNull() to likes?.toIntOrNull()
+    val video = body.items.firstOrNull()
+    return StreamStats(
+        viewers = video?.liveStreamingDetails?.concurrentViewers?.toIntOrNull(),
+        likes = video?.statistics?.likeCount?.toIntOrNull()
+    )
 }
 
 fun extractVideoId(url: String): String? {

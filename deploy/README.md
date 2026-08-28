@@ -27,6 +27,15 @@ the app but cannot read its secrets.
 install -d -o deploy -g deploy -m 750 /opt/youtubecounter
 ```
 
+Everything in that directory must end up owned by `deploy` — including `.env`. A
+root-owned `.env` is the most likely reason a deploy fails with `permission denied`,
+because CI connects as `deploy`, not as root:
+
+```sh
+chown -R deploy:deploy /opt/youtubecounter
+chmod 600 /opt/youtubecounter/.env
+```
+
 Then, as the `deploy` user (must be in the `docker` group):
 
 ```sh
@@ -104,4 +113,5 @@ guessed, it comes from `.env`, which `deploy.sh` maintains.
   registry and never reach the `deploy` job, so a PR cannot touch production.
 - If a Google client secret is ever exposed, rotate it in the Google Cloud console
   (APIs & Services → Credentials), update `.env`, and `./deploy.sh <current tag>`.
-  Rotating it invalidates every stored refresh token, so all users re-authenticate.
+  Applying it restarts the container, which drops the in-memory refresh-token map,
+  so every user re-authenticates regardless.

@@ -2,7 +2,7 @@ package ru.cororo.youtubecounter
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeTokenRequest
 import com.google.api.client.googleapis.auth.oauth2.GoogleRefreshTokenRequest
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -17,6 +17,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.util.concurrent.ConcurrentHashMap
 
 fun main(args: Array<String>) {
     EngineMain.main(args)
@@ -36,10 +37,10 @@ data class GoogleAuthCodeRequest(val code: String, val redirectUri: String)
 @Serializable
 data class GoogleAccessToken(val accessToken: String)
 
-internal val refreshTokens = mutableMapOf<String, String>() // access - refresh
+internal val refreshTokens = ConcurrentHashMap<String, String>()
 
 fun Application.module() {
-    val transport = GoogleNetHttpTransport.newTrustedTransport()
+    val transport = NetHttpTransport()
     val jsonFactory = GsonFactory.getDefaultInstance()
 
     val (googleClientId, googleClientSecret) = property<GoogleAuthConfig>("google")

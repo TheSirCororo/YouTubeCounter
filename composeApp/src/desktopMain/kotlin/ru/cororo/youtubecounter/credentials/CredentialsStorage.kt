@@ -1,14 +1,16 @@
 package ru.cororo.youtubecounter.credentials
 
 import com.github.javakeyring.Keyring
-import com.github.javakeyring.KeyringStorageType
 import com.github.javakeyring.PasswordAccessException
+
+private const val SERVICE = "ru.cororo.youtubecounter"
+private const val ACCOUNT = "access_token"
 
 private val keyring = Keyring.create()
 
 fun putAccessTokenToStorage(token: String?) {
     if (token != null) {
-        keyring.setPassword("ru.cororo.youtubecounter", "access_token", token)
+        keyring.setPassword(SERVICE, ACCOUNT, token)
     } else {
         deleteAccessTokenFromStorage()
     }
@@ -16,7 +18,7 @@ fun putAccessTokenToStorage(token: String?) {
 
 fun deleteAccessTokenFromStorage() {
     try {
-        keyring.deletePassword("ru.cororo.youtubecounter", "access_token")
+        keyring.deletePassword(SERVICE, ACCOUNT)
     } catch (ex: PasswordAccessException) {
         if (ex.message?.isNotExistsMessage() == true) {
             return
@@ -28,7 +30,7 @@ fun deleteAccessTokenFromStorage() {
 
 fun getAccessTokenFromStorage(): String? =
     try {
-        keyring.getPassword("ru.cororo.youtubecounter", "access_token")
+        keyring.getPassword(SERVICE, ACCOUNT)
     } catch (ex: PasswordAccessException) {
         if (ex.message?.isNotExistsMessage() == true) {
             null
@@ -37,5 +39,7 @@ fun getAccessTokenFromStorage(): String? =
         }
     }
 
+// The keyring backends report a missing entry as a failure, each in their own words:
+// 1168 is the Windows credential store, "not in wallet" is KDE/GNOME.
 private fun String.isNotExistsMessage() =
     contains("1168") || contains("not in wallet")

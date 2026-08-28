@@ -19,6 +19,7 @@ import ru.cororo.youtubecounter.api.GoogleAccessToken
 import ru.cororo.youtubecounter.api.getYouTubeStreamViewersCount
 import youtubecounter.composeapp.generated.resources.Res
 import youtubecounter.composeapp.generated.resources.icon
+import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun ViewersPopupWindow(
@@ -32,20 +33,16 @@ fun ViewersPopupWindow(
 
     LaunchedEffect(videoId) {
         while (true) {
-            val (viewersCounter, likesCounter) = getYouTubeStreamViewersCount(
+            val stats = getYouTubeStreamViewersCount(
                 accessToken = getAccessToken(),
                 videoId = videoId,
                 updateAccessToken = setAccessToken
             )
-            if (viewersCounter != null) {
-                viewersCount = viewersCounter
-            }
+            // Keep the last known numbers on a failed poll rather than flashing zeroes.
+            stats.viewers?.let { viewersCount = it }
+            stats.likes?.let { likesCount = it }
 
-            if (likesCounter != null) {
-                likesCount = likesCounter
-            }
-
-            delay(3000)
+            delay(3.seconds)
         }
     }
 

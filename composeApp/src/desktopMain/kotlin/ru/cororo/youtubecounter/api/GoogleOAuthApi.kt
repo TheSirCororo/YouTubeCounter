@@ -2,16 +2,12 @@ package ru.cororo.youtubecounter.api
 
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.util.store.MemoryDataStoreFactory
-import io.ktor.client.*
 import io.ktor.client.call.*
-import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -21,15 +17,10 @@ import java.net.URI
 private const val GOOGLE_CLIENT_ID = "552436875611-lpn28228q2dpp6od64ukoqmi9ej18j77.apps.googleusercontent.com"
 private const val YOUTUBE_API_SCOPE = "https://www.googleapis.com/auth/youtube.readonly"
 private val backendServerUrl = System.getProperty("backend.server_url") ?: "https://youtubecounter.cororo.ru"
-private val httpClient = HttpClient(CIO) {
-    install(ContentNegotiation) {
-        json()
-    }
-}
 
 suspend fun authorizeGoogleOAuth(): GoogleAccessToken {
     val jsonFactory = GsonFactory.getDefaultInstance()
-    val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
+    val httpTransport = NetHttpTransport()
 
     val scopes = listOf(YOUTUBE_API_SCOPE)
     val flow = GoogleAuthorizationCodeFlow.Builder(
@@ -42,7 +33,6 @@ suspend fun authorizeGoogleOAuth(): GoogleAccessToken {
         .setDataStoreFactory(MemoryDataStoreFactory())
         .setAccessType("offline")
         .setApprovalPrompt("force")
-        .enablePKCE()
         .build()
 
     val receiver = LocalServerReceiver.Builder()
