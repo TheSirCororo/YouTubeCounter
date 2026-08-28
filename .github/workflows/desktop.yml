@@ -11,9 +11,59 @@ on:
 permissions:
   contents: read
 
+# One release at a time, so two quick pushes cannot race to create the same tag.
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  # Decides what to build and whether this run publishes anything. The tag is
+  # created later, in the release job, rather than by a separate workflow: a tag
+  # pushed with GITHUB_TOKEN does not trigger other workflows, so a "tag now,
+  # build on the tag event" split would tag the commit and then quietly do nothing.
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      release: ${{ steps.resolve.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # tags, to see which versions were already released
+
+      - name: Resolve version
+        id: resolve
+        run: |
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then
+            # Re-running an existing tag: publish exactly that.
+            version=${GITHUB_REF_NAME#v}
+            release=true
+          else
+            version=$(sed -n 's/^version=//p' gradle.properties | tail -n 1)
+            release=false
+            if [[ $GITHUB_EVENT_NAME == push ]]; then
+              if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+                echo "v$version is already tagged - nothing to release"
+              else
+                release=true
+              fi
+            fi
+          fi
+
+          # jpackage only accepts numeric versions, and a bad one would fail four
+          # OS builds several minutes in.
+          if [[ ! $version =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+            echo "::error::'$version' is not a version jpackage can package"
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          echo "Building $version (release: $release)" >> "$GITHUB_STEP_SUMMARY"
+
   package:
     name: ${{ matrix.name }}
+    needs: version
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -61,29 +111,11 @@ jobs:
             "C:\Program Files (x86)\WiX Toolset v3.14\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
           }
 
-      # A tag of v1.0.5 packages as 1.0.5. Other builds keep the version from
-      # composeApp/build.gradle.kts - jpackage only accepts numeric versions,
-      # so a commit sha cannot be used here.
-      - name: Resolve version
-        id: version
-        shell: bash
-        run: |
-          if [[ $GITHUB_REF == refs/tags/v* ]]; then
-            version=${GITHUB_REF_NAME#v}
-            if [[ ! $version =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
-              echo "::error::tag $GITHUB_REF_NAME is not a numeric version jpackage can package"
-              exit 1
-            fi
-            echo "gradle_arg=-PappVersion=$version" >> "$GITHUB_OUTPUT"
-          else
-            echo "gradle_arg=" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Package
         shell: bash
         run: |
           chmod +x ./gradlew   # gradlew is tracked without the executable bit
-          ./gradlew ${{ matrix.tasks }} ${{ steps.version.outputs.gradle_arg }}
+          ./gradlew ${{ matrix.tasks }} -PappVersion=${{ needs.version.outputs.version }}
 
       # Both macOS legs produce an identically named .dmg, so the platform goes
       # into the file name before anything is uploaded.
@@ -128,27 +160,45 @@ jobs:
           retention-days: 14
 
   release:
-    needs: package
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [ version, package ]
+    if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
 
+      # On a version bump this is what creates v1.0.5; on a re-run of an existing
+      # tag it is already there and this is a no-op.
+      - name: Tag the release
+        env:
+          TAG: v${{ needs.version.outputs.version }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "$TAG already exists"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "YouTubeCounter $TAG"
+            git push origin "$TAG"
+          fi
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: v${{ needs.version.outputs.version }}
         run: |
           ls -la dist
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" dist/* \
+            gh release create "$TAG" dist/* \
               --repo "$GITHUB_REPOSITORY" \
-              --title "YouTubeCounter $GITHUB_REF_NAME" \
+              --title "YouTubeCounter $TAG" \
               --generate-notes
           fi

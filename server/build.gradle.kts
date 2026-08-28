@@ -5,7 +5,6 @@ plugins {
 }
 
 group = "ru.cororo.youtubecounter"
-version = "1.0.4"
 
 // Pinned so the bytecode always matches the JRE of the Docker image built by the ktor plugin,
 // regardless of which JDK Gradle itself runs on.
@@ -30,7 +29,7 @@ application {
 
 ktor {
     docker {
-        imageTag = "1.0.4"
+        imageTag = version.toString()
         localImageName = "youtubecounter-backend"
     }
 }

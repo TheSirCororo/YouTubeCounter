@@ -6,13 +6,16 @@ This is a simple application with purpose of displaying likes and views of YouTu
 2. `server` - a server which providing exchanging of google auth code to access token.
 
 ## Downloads
-Every push to `master` builds the desktop app for Windows, macOS and Linux; the packages are attached to that run in the Actions tab. Tagged releases (`v1.0.5`) additionally publish them to [Releases](https://github.com/TheSirCororo/YouTubeCounter/releases):
+Every push to `master` builds the desktop app for Windows, macOS and Linux; the packages are attached to that run in the Actions tab. When the version in `gradle.properties` changes, that build also tags the commit and publishes the packages to [Releases](https://github.com/TheSirCororo/YouTubeCounter/releases):
 
 | Platform | Package |
 | --- | --- |
 | Windows | `.msi` |
 | macOS | `.dmg` (Intel and Apple Silicon, unsigned - allow it in System Settings on first launch) |
 | Linux | `.deb`, `.rpm`, and a portable `.tar.gz` |
+
+## Releasing
+Bump `version` in `gradle.properties` and push to `master`. CI builds every platform, creates the matching `v<version>` tag and publishes the release. Pushes that do not change the version just build. One number drives the desktop package version, the server and the docker image tag.
 
 ## Building
 1. Clone project.

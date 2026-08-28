@@ -45,8 +45,8 @@ kotlin {
     }
 }
 
-// Release pipeline passes the git tag through: -PappVersion=1.0.5
-val appVersion = (findProperty("appVersion") as String?) ?: "1.0.2"
+// Comes from gradle.properties, or from -PappVersion for a one-off build.
+val appVersion = version.toString()
 
 compose.desktop {
     application {
