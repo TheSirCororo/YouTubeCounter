@@ -11,14 +11,12 @@ import io.ktor.server.config.*
 import io.ktor.server.http.content.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-
-private val refreshTokens = mutableMapOf<String, String>() // access - refresh
 
 fun main(args: Array<String>) {
     EngineMain.main(args)
@@ -31,6 +29,14 @@ data class GoogleAuthConfig(
     @SerialName("client_secret")
     val clientSecret: String
 )
+
+@Serializable
+data class GoogleAuthCodeRequest(val code: String, val redirectUri: String)
+
+@Serializable
+data class GoogleAccessToken(val accessToken: String)
+
+internal val refreshTokens = mutableMapOf<String, String>() // access - refresh
 
 fun Application.module() {
     val transport = GoogleNetHttpTransport.newTrustedTransport()
@@ -93,10 +99,3 @@ fun Application.module() {
         staticResources("/static", "static", index = "index.html")
     }
 }
-
-
-@Serializable
-data class GoogleAuthCodeRequest(val code: String, val redirectUri: String)
-
-@Serializable
-data class GoogleAccessToken(val accessToken: String)

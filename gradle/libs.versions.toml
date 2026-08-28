@@ -1,14 +1,13 @@
 [versions]
-androidx-lifecycle = "2.9.0"
-composeHotReload = "1.0.0-alpha10"
-composeMultiplatform = "1.8.1"
+androidx-lifecycle = "2.11.0"
+composeMultiplatform = "1.12.0"
 junit = "4.13.2"
-kotlin = "2.2.0"
-kotlinx-coroutines = "1.10.2"
-ktor = "3.2.0"
+kotlin = "2.4.10"
+kotlinx-coroutines = "1.11.0"
+ktor = "3.5.2"
 oauth = "1.39.0"
-google-api = "2.8.0"
-logback = "1.5.18"
+google-api = "2.9.0"
+logback = "1.6.3"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -38,7 +37,6 @@ ktor-server-statusPages = { module = "io.ktor:ktor-server-status-pages", version
 logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 
 [plugins]
-composeHotReload = { id = "org.jetbrains.compose.hot-reload", version.ref = "composeHotReload" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

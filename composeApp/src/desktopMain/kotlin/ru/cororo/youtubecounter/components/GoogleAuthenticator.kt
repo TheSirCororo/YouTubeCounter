@@ -19,7 +19,6 @@ import ru.cororo.youtubecounter.api.authorizeGoogleOAuth
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 @Composable
-@Preview
 fun GoogleAuthenticator(setToken: (GoogleAccessToken?) -> Unit) {
     var error by remember { mutableStateOf(false) }
     var pendingLogin by remember { mutableStateOf(false) }

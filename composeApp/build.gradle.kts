@@ -4,7 +4,6 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.composeHotReload)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -46,19 +45,28 @@ kotlin {
     }
 }
 
+// Release pipeline passes the git tag through: -PappVersion=1.0.5
+val appVersion = (findProperty("appVersion") as String?) ?: "1.0.2"
+
 compose.desktop {
     application {
         mainClass = "ru.cororo.youtubecounter.MainKt"
 
         buildTypes.release.proguard {
+            // 7.10.0+ bundles kotlin-metadata-jvm 2.4, required to read Kotlin 2.4 .kotlin_module files
+            version.set("7.10.0")
             configurationFiles.from("rules.pro")
         }
 
         nativeDistributions {
             modules("jdk.httpserver", "jdk.unsupported", "java.naming", "jdk.security.auth")
-            targetFormats(TargetFormat.Msi, TargetFormat.AppImage)
+            targetFormats(
+                TargetFormat.Msi,                                          // Windows
+                TargetFormat.Dmg,                                          // macOS
+                TargetFormat.AppImage, TargetFormat.Deb, TargetFormat.Rpm, // Linux
+            )
             packageName = "YouTubeCounter"
-            packageVersion = "1.0.2"
+            packageVersion = appVersion
             description = "Viewers and likes counter for youtube streams"
             copyright = "© 2025 TheSirCororo. All rights reserved."
             vendor = "TheSirCororo"
@@ -68,6 +76,20 @@ compose.desktop {
                 iconFile.set(project.file("src/desktopMain/composeResources/drawable/favicon.ico"))
                 shortcut = true
                 menuGroup = "YouTubeCounter"
+            }
+
+            linux {
+                iconFile.set(project.file("src/desktopMain/composeResources/drawable/icon.png"))
+                shortcut = true
+                menuGroup = "YouTubeCounter"
+                rpmLicenseType = "MIT"
+            }
+
+            macOS {
+                bundleID = "ru.cororo.youtubecounter"
+                dockName = "YouTubeCounter"
+                // Unsigned: without an Apple Developer ID, Gatekeeper asks the user to
+                // allow the app on first launch.
             }
         }
     }

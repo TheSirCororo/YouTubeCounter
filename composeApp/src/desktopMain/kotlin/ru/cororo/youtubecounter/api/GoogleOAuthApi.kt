@@ -12,6 +12,8 @@ import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import java.awt.Desktop
 import java.net.URI
@@ -50,7 +52,9 @@ suspend fun authorizeGoogleOAuth(): GoogleAccessToken {
     val redirectUri = receiver.redirectUri
     val authCodeUrl = flow.newAuthorizationUrl().setRedirectUri(redirectUri).build()
     if (Desktop.isDesktopSupported()) {
-        Desktop.getDesktop().browse(URI.create(authCodeUrl))
+        withContext(Dispatchers.IO) {
+            Desktop.getDesktop().browse(URI.create(authCodeUrl))
+        }
     } else {
         error("Не поддерживается браузер.")
     }

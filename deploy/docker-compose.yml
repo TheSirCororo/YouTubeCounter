@@ -1,0 +1,36 @@
+# Runs on the deployment host, not in CI. Copy this file (plus deploy.sh) to
+# $DEPLOY_DIR on the server; see README.md in this directory for the setup steps.
+#
+# Every value below comes from the .env file sitting next to this one. That file
+# holds the Google client secret and is never committed — see .env.example.
+name: youtubecounter
+
+services:
+  backend:
+    image: ${APP_IMAGE:-ghcr.io/thesircororo/youtubecounter-backend}:${APP_TAG:?APP_TAG is not set - run deploy.sh instead of "docker compose up" by hand}
+    container_name: youtubecounter-backend
+    restart: unless-stopped
+
+    # GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are read from here at container start.
+    # Nothing is baked into the image and nothing is passed on the command line,
+    # so the secret never appears in shell history or in `ps` output.
+    env_file:
+      - .env
+
+    # Bound to loopback only: the reverse proxy in front of it is the sole way in
+    # from the outside world. Do not change this to 0.0.0.0 - the app speaks plain
+    # HTTP and terminates no TLS of its own.
+    ports:
+      - "127.0.0.1:${HOST_PORT:-8080}:8080"
+
+    security_opt:
+      - no-new-privileges:true
+
+    tmpfs:
+      - /tmp
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"

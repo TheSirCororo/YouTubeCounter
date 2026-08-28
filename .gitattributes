@@ -1,0 +1,7 @@
+# Shell scripts must keep LF regardless of the platform they are checked out on:
+# the Windows CI runner builds through `bash ./gradlew`, and deploy.sh is copied
+# to a Linux host, where a CR would break the shebang.
+gradlew      text eol=lf
+*.sh         text eol=lf
+*.bat        text eol=crlf
+gradlew.bat  text eol=crlf

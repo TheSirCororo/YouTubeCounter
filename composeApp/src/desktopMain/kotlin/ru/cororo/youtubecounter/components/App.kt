@@ -15,7 +15,6 @@ import ru.cororo.youtubecounter.api.GoogleAccessToken
 import ru.cororo.youtubecounter.api.extractVideoId
 
 @Composable
-@Preview
 fun App(onShowPopup: () -> Unit, setVideoId: (String) -> Unit, setAccessToken: (GoogleAccessToken?) -> Unit) {
     var url by remember { mutableStateOf("") }
     var error by remember { mutableStateOf(false) }

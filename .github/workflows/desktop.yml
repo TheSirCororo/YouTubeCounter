@@ -1,0 +1,154 @@
+name: Build desktop app
+
+on:
+  push:
+    branches: [ master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            os: windows-latest
+            tasks: packageReleaseMsi
+          - name: macos-arm64
+            os: macos-latest
+            tasks: packageReleaseDmg
+          # macos-latest is Apple Silicon; the -intel label is the x64 image.
+          - name: macos-x64
+            os: macos-26-intel
+            tasks: packageReleaseDmg
+          - name: linux-x64
+            os: ubuntu-latest
+            tasks: packageReleaseDeb packageReleaseRpm packageReleaseAppImage
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '21'
+          cache: gradle
+
+      # jpackage shells out to the native packaging tools; ubuntu images ship dpkg
+      # and fakeroot but not rpmbuild.
+      - name: Install Linux packaging tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends rpm fakeroot
+
+      # jpackage's msi bundler needs WiX 3. Installed only if the runner image
+      # stopped shipping it, so this is a no-op on images that still do.
+      - name: Ensure WiX 3 is available
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command candle.exe -ErrorAction SilentlyContinue)) {
+            choco install wixtoolset --version=3.14.1 --no-progress -y
+            "C:\Program Files (x86)\WiX Toolset v3.14\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          }
+
+      # A tag of v1.0.5 packages as 1.0.5. Other builds keep the version from
+      # composeApp/build.gradle.kts - jpackage only accepts numeric versions,
+      # so a commit sha cannot be used here.
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then
+            version=${GITHUB_REF_NAME#v}
+            if [[ ! $version =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+              echo "::error::tag $GITHUB_REF_NAME is not a numeric version jpackage can package"
+              exit 1
+            fi
+            echo "gradle_arg=-PappVersion=$version" >> "$GITHUB_OUTPUT"
+          else
+            echo "gradle_arg=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package
+        shell: bash
+        run: |
+          chmod +x ./gradlew   # gradlew is tracked without the executable bit
+          ./gradlew ${{ matrix.tasks }} ${{ steps.version.outputs.gradle_arg }}
+
+      # Both macOS legs produce an identically named .dmg, so the platform goes
+      # into the file name before anything is uploaded.
+      - name: Collect packages (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.name }}
+        run: |
+          out=composeApp/build/compose/binaries/main-release
+          mkdir -p dist
+          for f in "$out"/dmg/*.dmg; do
+            [ -e "$f" ] || continue
+            cp "$f" "dist/$(basename "$f" .dmg)-$PLATFORM.dmg"
+          done
+          for f in "$out"/deb/*.deb "$out"/rpm/*.rpm; do
+            if [ -e "$f" ]; then cp "$f" dist/; fi
+          done
+          # TargetFormat.AppImage is jpackage's app-image: a directory, not a bundle.
+          # Ship it as a tarball so people on other distros have something portable.
+          if [ -d "$out/app/YouTubeCounter" ]; then
+            tar -C "$out/app" -czf "dist/YouTubeCounter-$PLATFORM.tar.gz" YouTubeCounter
+          fi
+
+      - name: Collect packages (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          PLATFORM: ${{ matrix.name }}
+        run: |
+          $out = "composeApp/build/compose/binaries/main-release"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Get-ChildItem "$out/msi/*.msi" | ForEach-Object {
+            Copy-Item $_.FullName "dist/$($_.BaseName)-$env:PLATFORM.msi"
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YouTubeCounter-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la dist
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "YouTubeCounter $GITHUB_REF_NAME" \
+              --generate-notes
+          fi

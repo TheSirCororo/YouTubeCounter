@@ -198,6 +198,14 @@
 
 # Project specific
 
+# Enums reached only through reflection (EnumSet/valueOf) lose values() otherwise.
+# google-api-client's GenericData builds an EnumSet<GenericData.Flags>, which fails
+# with "not an enum" in the minified build without this.
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
 # Custom rules to ignore warnings from Google Guava
 -dontwarn com.google.common.collect.**
 -dontwarn com.google.common.base.Converter

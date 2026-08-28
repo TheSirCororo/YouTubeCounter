@@ -23,9 +23,7 @@ fun main() = application {
     var showPopup by remember { mutableStateOf(false) }
     var videoId by remember { mutableStateOf("") }
     var accessToken by remember {
-        mutableStateOf(getAccessTokenFromStorage()?.let {
-            GoogleAccessToken(it)
-        })
+        mutableStateOf(getAccessTokenFromStorage()?.let { GoogleAccessToken(it) })
     }
 
     if (accessToken == null) {

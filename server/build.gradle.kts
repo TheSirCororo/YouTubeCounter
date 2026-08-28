@@ -7,6 +7,12 @@ plugins {
 group = "ru.cororo.youtubecounter"
 version = "1.0.4"
 
+// Pinned so the bytecode always matches the JRE of the Docker image built by the ktor plugin,
+// regardless of which JDK Gradle itself runs on.
+kotlin {
+    jvmToolchain(21)
+}
+
 dependencies {
     implementation(libs.ktor.serialization)
     implementation(libs.ktor.server.netty)
