@@ -1,44 +1,52 @@
-# Runs on the deployment host, not in CI. Copy this file (plus deploy.sh) to
-# $DEPLOY_DIR on the server; see README.md in this directory for the setup steps.
+# Compose-файл сервиса в Dokploy. Копия того, что хранится в самом Dokploy
+# (проект services, сервис youtubecounter) — здесь он лежит, чтобы изменения
+# проходили через ревью, а не только через веб-интерфейс.
 #
-# Every value below comes from the .env file sitting next to this one. That file
-# holds the Google client secret and is never committed — see .env.example.
-name: youtubecounter
-
+# Тип сервиса в Dokploy — Compose, а не Application, и это важно: Compose
+# разворачивается обычным `docker compose`, поэтому работает tmpfs с exec
+# (см. ниже). В Swarm-приложении задать exec для tmpfs нельзя вообще.
 services:
   backend:
-    image: ${APP_IMAGE:-ghcr.io/thesircororo/youtubecounter-backend}:${APP_TAG:?APP_TAG is not set - run deploy.sh instead of "docker compose up" by hand}
+    # Тег подставляет deploy.sh через переменные окружения Dokploy.
+    image: ${APP_IMAGE}:${APP_TAG}
     container_name: youtubecounter-backend
     restart: unless-stopped
 
-    # GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are read from here at container start.
-    # Nothing is baked into the image and nothing is passed on the command line,
-    # so the secret never appears in shell history or in `ps` output.
-    env_file:
-      - .env
+    # Обязательно, не украшение. Dokploy разворачивает стек командой
+    # `docker compose up -d --build`, без отдельного `pull`. С плавающим
+    # тегом (latest) docker взял бы локально закешированный образ, и деплой
+    # «успешно» поднимал бы старый код. pull_policy заставляет тянуть заново.
+    pull_policy: always
 
-    # Set here rather than in .env: it must match the volume mount below, and is not
-    # something an operator should have to keep in sync by hand.
+    # Секреты приходят из переменных окружения Dokploy: в образ ничего
+    # не вшито, в командной строке не светится.
     environment:
       TOKENS_DB_PATH: /data/tokens.db
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
 
-    # Bound to loopback only: the reverse proxy in front of it is the sole way in
-    # from the outside world. Do not change this to 0.0.0.0 - the app speaks plain
-    # HTTP and terminates no TLS of its own.
+    # Только на loopback. Наружу сервис отдаёт nginx на хосте, а маршрутизацию
+    # по имени делает Traefik Dokploy. Этот порт оставлен ради прямой проверки
+    # контейнера мониторингом, в обход всей цепочки.
     ports:
-      - "127.0.0.1:${HOST_PORT:-8080}:8080"
+      - "127.0.0.1:${HOST_PORT}:8080"
 
-    # Refresh tokens live in a SQLite file here. Without this volume every redeploy
-    # would sign all users out, which is the whole reason the store exists.
+    # Том с refresh-токенами объявлен внешним намеренно: это тот же том, что
+    # был у стека до переезда в Dokploy, поэтому пользователи не разлогинились.
     volumes:
       - tokens:/data
+
+    networks:
+      - default
+      - monitoring
 
     security_opt:
       - no-new-privileges:true
 
-    # `exec` is required, not decoration: docker mounts tmpfs noexec by default, and
-    # sqlite-jdbc unpacks its native library into java.io.tmpdir and dlopen()s it, so
-    # a plain `- /tmp` makes the container fail to start with NativeLibraryNotFound.
+    # exec обязателен, это не украшение: docker монтирует tmpfs с noexec,
+    # а sqlite-jdbc распаковывает нативную библиотеку в java.io.tmpdir и
+    # делает dlopen. С обычным `- /tmp` контейнер падает на старте с
+    # NativeLibraryNotFoundException.
     tmpfs:
       - /tmp:exec
 
@@ -50,3 +58,10 @@ services:
 
 volumes:
   tokens:
+    external: true
+    name: youtubecounter_tokens
+
+# Сеть мониторинга: Uptime Kuma проверяет контейнер напрямую по имени.
+networks:
+  monitoring:
+    external: true

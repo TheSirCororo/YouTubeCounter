@@ -5,12 +5,9 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  # Rebuild and redeploy the current branch on demand. Redeploying an *older*
+  # image is done in Dokploy (set APP_TAG, deploy) - CI only ever ships `latest`.
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Existing image tag to (re)deploy, e.g. sha-1a2b3c4. Leave empty to build and deploy this branch."
-        required: false
-        type: string
 
 # Never let two deploys touch the host at the same time.
 concurrency:
@@ -43,24 +40,15 @@ jobs:
 
       - name: Resolve image coordinates
         id: meta
-        env:
-          # Passed as an environment variable, not interpolated into the script, so a
-          # crafted dispatch input cannot become shell code.
-          REQUESTED_TAG: ${{ inputs.tag }}
         run: |
           image=$(printf 'ghcr.io/%s/%s' "$GITHUB_REPOSITORY_OWNER" "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
-          tag="${REQUESTED_TAG:-sha-${GITHUB_SHA::7}}"
-          case "$tag" in
-            *[!A-Za-z0-9._-]*) echo "::error::'$tag' is not a valid image tag"; exit 1 ;;
-          esac
+          tag="sha-${GITHUB_SHA::7}"
           {
             echo "image=$image"
             echo "tag=$tag"
           } >> "$GITHUB_OUTPUT"
 
-      # Skipped when re-deploying an existing tag through workflow_dispatch.
       - name: Build image
-        if: ${{ !inputs.tag }}
         run: |
           chmod +x ./gradlew   # gradlew is tracked without the executable bit
           ./gradlew :server:publishImageToLocalRegistry
@@ -68,13 +56,15 @@ jobs:
       # Pull requests stop here: the build is the check. Fork PRs run with a
       # read-only token and no access to secrets, so nothing below can run for them.
       - name: Log in to ghcr.io
-        if: ${{ github.event_name != 'pull_request' && !inputs.tag }}
+        if: ${{ github.event_name != 'pull_request' }}
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
+      # Both tags are pushed: `sha-<short>` is the immutable record of what was
+      # built, `latest` is what Dokploy actually deploys.
       - name: Push image
-        if: ${{ github.event_name != 'pull_request' && !inputs.tag }}
+        if: ${{ github.event_name != 'pull_request' }}
         env:
           IMAGE: ${{ steps.meta.outputs.image }}
           TAG: ${{ steps.meta.outputs.tag }}
@@ -94,42 +84,35 @@ jobs:
     needs: build
     # Only ever from master on this repository. `pull_request` events - including
     # ones opened from forks - can never reach this job, and therefore never reach
-    # the deployment secrets.
+    # the deployment secret.
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
     runs-on: ubuntu-latest
     environment:
       name: production
       url: https://youtubecounter.cororo.ru
     steps:
-      - name: Configure SSH
+      # The host runs the service under Dokploy. CI does not touch it over SSH any
+      # more: it POSTs to a single Dokploy webhook, which redeploys the compose
+      # service. The compose file sets `pull_policy: always`, so the redeploy picks
+      # up the `latest` image this run just pushed.
+      #
+      # The webhook URL is the whole secret - it carries an unguessable path prefix
+      # and the service's deploy token. Nothing else of Dokploy is reachable from
+      # the internet.
+      - name: Tell Dokploy to deploy
         env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          WEBHOOK: ${{ secrets.DOKPLOY_DEPLOY_WEBHOOK }}
         run: |
-          # Secrets are handed over as environment variables and quoted here, never
-          # interpolated into the script body, so their contents cannot be parsed as shell.
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
-          chmod 600 ~/.ssh/id_deploy
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-
-      - name: Deploy
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
-          TAG: ${{ needs.build.outputs.tag }}
-        run: |
-          ssh -i ~/.ssh/id_deploy \
-              -o IdentitiesOnly=yes \
-              -o StrictHostKeyChecking=yes \
-              -o BatchMode=yes \
-              -o ConnectTimeout=15 \
-              -p "$DEPLOY_PORT" \
-              "$DEPLOY_USER@$DEPLOY_HOST" \
-              "/opt/youtubecounter/deploy.sh $TAG"
-
-      - name: Remove deploy key
-        if: always()
-        run: rm -f ~/.ssh/id_deploy
+          if [ -z "$WEBHOOK" ]; then
+            echo "::error::DOKPLOY_DEPLOY_WEBHOOK is not set"
+            exit 1
+          fi
+          # The URL is passed through an environment variable and quoted, never
+          # interpolated into the script body, so it cannot become shell code and
+          # does not end up in the run log.
+          code=$(curl -sS -o response.txt -w '%{http_code}' --max-time 180 -X POST "$WEBHOOK")
+          cat response.txt
+          if [ "$code" != "200" ]; then
+            echo "::error::Dokploy answered HTTP $code"
+            exit 1
+          fi
