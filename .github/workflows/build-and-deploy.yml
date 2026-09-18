@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ master ]
   # Rebuild and redeploy the current branch on demand. Redeploying an *older*
-  # image is done in Dokploy (set APP_TAG, deploy) - CI only ever ships `latest`.
+  # image is done on the server (pin APP_TAG, redeploy) - CI only ships `latest`.
   workflow_dispatch:
 
 # Never let two deploys touch the host at the same time.
@@ -62,7 +62,7 @@ jobs:
         run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
       # Both tags are pushed: `sha-<short>` is the immutable record of what was
-      # built, `latest` is what Dokploy actually deploys.
+      # built, `latest` is what the server actually deploys.
       - name: Push image
         if: ${{ github.event_name != 'pull_request' }}
         env:
@@ -91,28 +91,38 @@ jobs:
       name: production
       url: https://youtubecounter.cororo.ru
     steps:
-      # The host runs the service under Dokploy. CI does not touch it over SSH any
-      # more: it POSTs to a single Dokploy webhook, which redeploys the compose
-      # service. The compose file sets `pull_policy: always`, so the redeploy picks
-      # up the `latest` image this run just pushed.
+      # CI does not touch the host: it POSTs to a single deploy webhook and the
+      # server redeploys itself from this repository. The compose file sets
+      # `pull_policy: always`, so the redeploy picks up the `latest` image this
+      # run just pushed.
       #
-      # The webhook URL is the whole secret - it carries an unguessable path prefix
-      # and the service's deploy token. Nothing else of Dokploy is reachable from
-      # the internet.
-      - name: Tell Dokploy to deploy
+      # The webhook URL is the whole secret - it carries an unguessable path and
+      # the service's deploy token, and it is the only endpoint of the deployment
+      # machinery reachable from the internet.
+      - name: Trigger deployment
         env:
-          WEBHOOK: ${{ secrets.DOKPLOY_DEPLOY_WEBHOOK }}
+          WEBHOOK: ${{ secrets.DEPLOY_WEBHOOK }}
         run: |
           if [ -z "$WEBHOOK" ]; then
-            echo "::error::DOKPLOY_DEPLOY_WEBHOOK is not set"
+            echo "::error::DEPLOY_WEBHOOK is not set"
             exit 1
           fi
           # The URL is passed through an environment variable and quoted, never
           # interpolated into the script body, so it cannot become shell code and
           # does not end up in the run log.
-          code=$(curl -sS -o response.txt -w '%{http_code}' --max-time 180 -X POST "$WEBHOOK")
+          #
+          # The payload is not optional. The server deploys the compose file from
+          # this repository, so it checks the pushed ref against the branch it
+          # tracks; with an empty body it refuses - and it does so with HTTP 301,
+          # which reads like a redirect rather than a refusal.
+          code=$(curl -sS -o response.txt -w '%{http_code}' --max-time 180 \
+                      -X POST \
+                      -H 'Content-Type: application/json' \
+                      -H 'X-GitHub-Event: push' \
+                      -d "{\"ref\":\"$GITHUB_REF\"}" \
+                      "$WEBHOOK")
           cat response.txt
           if [ "$code" != "200" ]; then
-            echo "::error::Dokploy answered HTTP $code"
+            echo "::error::deploy webhook answered HTTP $code"
             exit 1
           fi

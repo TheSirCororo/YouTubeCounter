@@ -25,7 +25,7 @@ Bump `version` in `gradle.properties` and push to `master`. CI builds every plat
 5. To build server run `./gradlew :server:buildFatJar` or `./gradlew :server:buildImage` if you want to build docker image.
 
 ## Deployment
-The backend is deployed automatically: pushing to `master` builds the image, publishes it to GitHub Container Registry and rolls it out to the server, rolling back on its own if the new build does not come up healthy. Setup and host configuration are documented in [deploy/README.md](deploy/README.md).
+The backend is deployed automatically: pushing to `master` builds the image, publishes it to GitHub Container Registry and triggers a rollout on the server, which redeploys `deploy/docker-compose.yml` from this repository.
 
 ## Licensing
 The project is licensed under [MIT license](LICENSE)
